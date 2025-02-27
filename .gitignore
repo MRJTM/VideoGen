@@ -1,0 +1,7 @@
+.idea
+.streamlit
+__pycache__/
+tmp_images
+tmp_audios
+tmp_videos
+test.py
