@@ -44,8 +44,8 @@ def response_generator(prompt=''):
     )
     return stream
 
-def call_multi_model_gpt(prompt,image):
-    if image.startswith("http"):
+def call_multi_model_gpt(prompt,image,image_mode='url'):
+    if image_mode=='url':
         image_url=image
     else:
         image_url=f"data:image/jpeg;base64,{image}"
@@ -87,6 +87,13 @@ def call_gpt_image_gen(prompt):
 def encode_image(image_path):
   with open(image_path, "rb") as image_file:
     return base64.b64encode(image_file.read()).decode('utf-8')
+
+def encode_image_to_base64(image_file):
+    if image_file is not None:
+        # 将上传的文件内容转换为 Base64 编码
+        base64_image = base64.b64encode(image_file.getvalue()).decode("utf-8")
+        return base64_image
+    return None
 
 def call_gpt_text2audio_gen(text,speech_file_name):
     speech_folder_path='./tmp_audios'
