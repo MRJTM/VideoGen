@@ -5,3 +5,4 @@ numpy
 python-docx
 docx2txt
 moviepy
+wget
