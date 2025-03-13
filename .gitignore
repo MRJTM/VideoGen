@@ -4,4 +4,6 @@ __pycache__/
 tmp_images
 tmp_audios
 tmp_videos
+tmp_scenes
 test.py
+.DS_Store

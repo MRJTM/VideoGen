@@ -10,6 +10,7 @@ import numpy as np
 from io import BytesIO
 from PIL import Image,ImageFont,ImageDraw
 import wget
+import time
 
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 OPENAI_BASE_URL = st.secrets["BASE_URL"]
@@ -87,6 +88,11 @@ def call_gpt_image_gen(prompt):
 def encode_image(image_path):
   with open(image_path, "rb") as image_file:
     return base64.b64encode(image_file.read()).decode('utf-8')
+
+def stream_data(text):
+    for word in text.split(" "):
+        yield word + " "
+        time.sleep(0.04)
 
 def encode_image_to_base64(image_file):
     if image_file is not None:
@@ -255,3 +261,58 @@ def render_text_on_image(text,font_path,image,line_font_num=12,max_line_num=3):
         y_position += line_height
 
     return new_image
+
+def send_video_generation_request(prompt,image_urls,duration,resolution,movement_amplitude,aspect_ratio):
+    # 定义 API 的 URL 和请求头
+    api_url = "https://api.vidu.cn/ent/v2/reference2video"
+    headers = {
+        "Authorization": "Token vda_2683281298413230_IaL6zdK5jpWCdOsrI4bILoo62ca9jMQ0",  # 替换为您的实际 API Key
+        "Content-Type": "application/json"
+    }
+
+    # 定义请求的 JSON 数据
+    data = {
+        "model": "vidu2.0",
+        "images": image_urls,
+        "prompt": prompt,
+        "duration": duration,
+        "seed": "0",
+        "aspect_ratio": aspect_ratio,
+        "resolution": resolution,
+        "movement_amplitude": movement_amplitude
+    }
+    response = requests.post(api_url, headers=headers, data=json.dumps(data))
+    return response.json()
+
+def check_video_gen_status(task_id):
+    api_key='vda_2683281298413230_IaL6zdK5jpWCdOsrI4bILoo62ca9jMQ0'
+
+    # 定义 API 的 URL 和请求头
+    api_url = f"https://api.vidu.cn/ent/v2/tasks/{task_id}/creations"  # 替换 {your_id} 为实际的任务 ID
+    headers = {
+        "Authorization": f"Token {api_key}"  # 替换 {your_api_key} 为您的实际 API Key
+    }
+
+    # 发送 GET 请求
+    response = requests.get(api_url, headers=headers)
+
+    # 打印响应内容
+    if response.status_code == 200:
+        return response.json()['creations']
+    else:
+        return []
+
+def upload_img_to_url(img_path=''):
+    url = 'https://s1.a2k6.com/mrjtm007/api/upload/'
+    api_token = '973115c87ee3753cf44e'
+    files = {'uploadedFile': ('demo.jpg', open(img_path, 'rb'), "image/jpeg")}
+    data = {'api_token': api_token,
+            'upload_format': 'file',  # 可选值 file 、base64 或者 url，不填则默认为file
+            'mode': '1',
+            'watermark': '0',
+            }
+    res = requests.post(url, data=data, files=files)
+    if res.status_code == 200:
+        return res.json()['url']
+    else:
+        return ''
