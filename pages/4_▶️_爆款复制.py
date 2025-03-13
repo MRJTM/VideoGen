@@ -1,6 +1,7 @@
 import time
-
+from moviepy.editor import ImageClip,CompositeVideoClip,AudioFileClip,TextClip,concatenate_videoclips,VideoFileClip
 from utils import *
+import random
 from scenedetect import detect, ContentDetector,split_video_ffmpeg,save_images,open_video
 st.set_page_config(page_title="开始创作你的视频", page_icon="📈")
 st.sidebar.header("▶️开始创作你的视频")
@@ -165,3 +166,63 @@ if st.button("生成片段"):
             wget.download(video_url,local_video_path)
             st.video(local_video_path)
 
+
+st.header("第四步: 合并片段",divider=True)
+video_paths = [
+        'tmp_videos/镜头001 (1).mp4',
+        'tmp_videos/镜头031.mp4',
+        'tmp_videos/镜头029.mp4',
+    ]
+# 展示多段视频
+num_img_per_row = 3
+row_num = len(video_paths) // num_img_per_row
+scene_info = {}
+
+if len(video_paths) % num_img_per_row != 0:
+    row_num += 1
+for i in range(row_num):
+    with st.container():
+        actual_col_num = min(num_img_per_row, len(video_paths) - i * num_img_per_row)
+        for j, col in enumerate(st.columns(actual_col_num)):
+            img_index = i * num_img_per_row + j
+            if img_index < len(video_paths):
+                video_path=video_paths[img_index]
+                col.video(video_path)
+            else:
+                break
+
+if st.button("合并片段"):
+    # 合并视频
+    video_clips = []
+    for video_path in video_paths:
+        video_clip = VideoFileClip(video_path)
+        video_clips.append(video_clip)
+    final_clip = concatenate_videoclips(video_clips)
+
+    # 获取bgm
+    audio_names=os.listdir('tmp_audios')
+    audio_path_list=[os.path.join('tmp_audios',audio_name) for audio_name in audio_names]
+    audio_clip=AudioFileClip(random.choice(audio_path_list))
+
+    # 处理音频和视频时长不一致的情况
+    video_duration = final_clip.duration
+    audio_duration = audio_clip.duration
+    if audio_duration > video_duration:
+        # 音频时长大于视频时长：截断音频
+        audio_clip = audio_clip.subclip(0, video_duration)
+    elif audio_duration < video_duration:
+        # 音频时长小于视频时长：复制音频
+        audio_clips = []
+        while audio_duration < video_duration:
+            audio_clips.append(audio_clip)
+            audio_duration += audio_clip.duration
+        # 如果复制后的音频总时长仍然小于视频时长，再复制一次
+        if audio_duration < video_duration:
+            audio_clips.append(audio_clip.subclip(0, video_duration - audio_duration))
+    final_clip=final_clip.set_audio(audio_clip)
+
+    # 保存最终的视频
+    final_video_path="tmp_videos/final_video.mp4"
+    final_clip.write_videofile(final_video_path, codec="libx264", fps=24)
+    st.video(final_video_path)
+    pass

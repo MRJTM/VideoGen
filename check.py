@@ -1,6 +1,6 @@
 import requests
 
-task_id='797048627599011840'
+task_id='797802589923069952'
 api_key='vda_2683281298413230_IaL6zdK5jpWCdOsrI4bILoo62ca9jMQ0'
 # 定义 API 的 URL 和请求头
 api_url = f"https://api.vidu.cn/ent/v2/tasks/{task_id}/creations"  # 替换 {your_id} 为实际的任务 ID
