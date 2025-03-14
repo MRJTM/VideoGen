@@ -34,28 +34,11 @@ if video_path is not None:
 
 st.header("第二步: 获取关键帧",divider=True)
 if st.button("获取关键帧"):
-    scene_folder_path='tmp_scenes'
-    if not os.path.exists(scene_folder_path):
-        os.makedirs(scene_folder_path)
     video_path=st.session_state['raw_video_path']
-    video_name=video_path.split('/')[-1].split('.')[0]
-    video_folder_path=os.path.join(scene_folder_path,video_name)
-    os.makedirs(video_folder_path,exist_ok=True)
-
-    # 场景分割解析
-    # min_scene_len=40,每个场景最少40帧
-    # min_scene_len=
-    scene_list = detect(video_path, ContentDetector(min_scene_len=40))
-
-    # 保存切割结果
-    # ffmpeg_arg = '-c:v libx264 -preset veryfast -crf 22 -c:a aac'
-    # ffmpeg_arg = '-c:v copy -c:a copy'
-    # split_video_ffmpeg(video_path, scene_list, video_name=video_name, show_progress=True, arg_override=ffmpeg_arg)
-    video=open_video(st.session_state['raw_video_path'])
-    save_images(scene_list,video,1,output_dir=video_folder_path,show_progress=True)
+    frame_folder_path = get_key_frames(video_path)
 
     # 展示关键帧
-    scene_images = os.listdir(video_folder_path)
+    scene_images = os.listdir(frame_folder_path)
     scene_images.sort()
 
     num_img_per_row = 3
@@ -72,7 +55,7 @@ if st.button("获取关键帧"):
                 if  img_index< len(scene_images):
                     scene_key="镜头{:0>3d}".format(img_index+1)
                     col.write(scene_key)
-                    img_path=os.path.join(video_folder_path,scene_images[img_index])
+                    img_path=os.path.join(frame_folder_path,scene_images[img_index])
                     col.image(img_path)
                     scene_info[scene_key]=img_path
                 else:
@@ -193,6 +176,11 @@ for i in range(row_num):
 
 if st.button("合并片段"):
     # 合并视频
+    video_paths = [
+        'tmp_videos/镜头001 (1).mp4',
+        'tmp_videos/镜头031.mp4',
+        'tmp_videos/镜头029.mp4',
+    ]
     video_clips = []
     for video_path in video_paths:
         video_clip = VideoFileClip(video_path)
@@ -226,3 +214,56 @@ if st.button("合并片段"):
     final_clip.write_videofile(final_video_path, codec="libx264", fps=24)
     st.video(final_video_path)
     pass
+
+st.header("第五步: 生成标题",divider=True)
+if st.button("解析视频镜头"):
+    # 先对合成的视频进行抽帧
+    video_path = "tmp_videos/final_video.mp4"
+    frame_folder_path = get_key_frames(video_path)
+    # 展示关键帧
+    scene_images = os.listdir(frame_folder_path)
+    scene_images.sort()
+    num_img_per_row = 3
+    row_num = len(scene_images) // num_img_per_row
+    scene_info = {}
+    image_paths = [os.path.join(frame_folder_path,frame_name) for frame_name in scene_images]
+    st.session_state['image_paths']=image_paths
+
+if 'image_paths' in st.session_state:
+    image_paths=st.session_state['image_paths']
+    if len(image_paths) % num_img_per_row != 0:
+        row_num += 1
+    for i in range(row_num):
+        with st.container():
+            actual_col_num = min(num_img_per_row, len(image_paths) - i * num_img_per_row)
+            if actual_col_num>0:
+                for j, col in enumerate(st.columns(actual_col_num)):
+                    img_index = i * num_img_per_row + j
+                    if img_index < len(image_paths):
+                        scene_key = "镜头{:0>3d}".format(img_index + 1)
+                        col.write(scene_key)
+                        img_path=image_paths[img_index]
+                        col.image(img_path)
+                    else:
+                        break
+
+product_info=st.text_input(label="输入产品核心信息")
+if st.button("生成标题"):
+    # 结合用户输入的产品信息，组织prompt
+    prompt_tmp=open("prompts/prompt_title_generation.txt").read()
+    prompt=prompt_tmp.replace('aaaaa',product_info)
+
+    # 调用gpt，产生标题信息
+    image_paths=st.session_state['image_paths']
+    raw_title_res=call_multi_model_gpt(prompt,image_paths,image_mode='local_path')
+    title_res=parse_json_response(raw_title_res)
+
+    # 打印标题信息
+    with st.chat_message("assistant"):
+        st.write(raw_title_res)
+
+    for i in range(5):
+        st.write("【标题{}】: {}".format(i+1,title_res['广告标题'][i]))
+
+    # with st.chat_message("assistant"):
+    #     answer = st.write_stream(response_generator(prompt))

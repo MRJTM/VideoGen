@@ -11,6 +11,8 @@ from io import BytesIO
 from PIL import Image,ImageFont,ImageDraw
 import wget
 import time
+from scenedetect import detect, ContentDetector,split_video_ffmpeg,save_images,open_video
+
 
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 OPENAI_BASE_URL = st.secrets["BASE_URL"]
@@ -45,28 +47,25 @@ def response_generator(prompt=''):
     )
     return stream
 
-def call_multi_model_gpt(prompt,image,image_mode='url'):
-    if image_mode=='url':
-        image_url=image
-    else:
-        image_url=f"data:image/jpeg;base64,{image}"
+def call_multi_model_gpt(prompt,images,image_mode='url'):
+    content = [{"type": "text", "text": prompt}]
+    for image in images:
+        if image_mode=='url':
+            image_url=image
+        elif image_mode=='base64':
+            image_url=f"data:image/jpeg;base64,{image}"
+        elif image_mode=='local_path':
+            base64_image=encode_image(image)
+            image_url=f"data:image/jpeg;base64,{base64_image}"
+        else:
+            image_url=""
+        content.append({"type": "image_url", "image_url": image_url})
     completion = client.chat.completions.create(
         model=MODEL_NAME,
         messages=[
             {
                 "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": prompt
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": image_url
-                        }
-                    }
-                ]
+                "content": content
             },
         ],
     )
@@ -75,6 +74,7 @@ def call_multi_model_gpt(prompt,image,image_mode='url'):
     except:
         res=""
     return res
+
 
 def call_gpt_image_gen(prompt):
     response = client.images.generate(
@@ -316,3 +316,24 @@ def upload_img_to_url(img_path=''):
         return res.json()['url']
     else:
         return ''
+
+def get_key_frames(video_path):
+    scene_folder_path = 'tmp_scenes'
+    if not os.path.exists(scene_folder_path):
+        os.makedirs(scene_folder_path)
+    video_name = video_path.split('/')[-1].split('.')[0]
+    video_folder_path = os.path.join(scene_folder_path, video_name)
+    os.makedirs(video_folder_path, exist_ok=True)
+
+    # 场景分割解析
+    # min_scene_len=40,每个场景最少40帧
+    # min_scene_len=
+    scene_list = detect(video_path, ContentDetector(min_scene_len=40))
+
+    # 保存切割结果
+    # ffmpeg_arg = '-c:v libx264 -preset veryfast -crf 22 -c:a aac'
+    # ffmpeg_arg = '-c:v copy -c:a copy'
+    # split_video_ffmpeg(video_path, scene_list, video_name=video_name, show_progress=True, arg_override=ffmpeg_arg)
+    video = open_video(video_path)
+    save_images(scene_list, video, 1, output_dir=video_folder_path, show_progress=True)
+    return video_folder_path
